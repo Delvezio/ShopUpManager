@@ -1,0 +1,24 @@
+/* src/app.css */
+
+@import 'tailwindcss';
+
+@theme {
+    --color-primary: #22a1b8; /* Base centrale della palette Casal */
+
+    --color-primary-50:  #effcfc;
+    --color-primary-100: #d5f5f8;
+    --color-primary-200: #b1e9f0;
+    --color-primary-300: #7bd8e5;
+    --color-primary-400: #3ebdd2;
+    --color-primary-500: #22a1b8; /* Identico a --color-primary */
+    --color-primary-600: #1f829b;
+    --color-primary-700: #1e6377;
+    --color-primary-800: #225668;
+    --color-primary-900: #214858;
+    --color-primary-950: #102f3c;
+    --color-success: #10b981;
+    --color-error: #ef4444;
+  }
+
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
