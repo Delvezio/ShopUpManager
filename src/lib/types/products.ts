@@ -5,12 +5,18 @@ export interface Product {
   name: string;
   barcode: string;
   costPrice: number;
+  iva: number;
   listPrice: number;
   salePrice: number;
   stock: number;
-  syncState: 'ok' | 'pending' | 'error';
+  syncState: 'pending' | 'synced' | 'error';
   updatedAt: Date;
   maxDiscountActive: boolean;
   customDiscountActive: boolean;
+  /** Percentuale di sconto calcolata per mantenere il margine target */
+  maxDiscountPct?: number;
+  /** Abilita prezzo manuale (lock) */
+  customPriceActive?: boolean;
+  /** Percentuale di sconto manuale inserita */
   customDiscountPct?: number;
 }

@@ -1,49 +1,32 @@
 <!-- src/routes/dashboard/+page.svelte -->
-
 <script lang="ts">
-  import { products } from '$lib/stores/products';
-  import StatCard from '$lib/components/ui/card/StatCard.svelte';
-  import StatCardGrid from '$lib/components/dashboard/StatCardGrid.svelte';
-  import ProductTable from '$lib/components/dashboard/product/ProductTable.svelte';
+  import { rawUploads } from '$lib/stores/rawUploads';
+  import { goto } from '$app/navigation';
+  import Button from '$lib/components/ui/Button.svelte';
   import CSVUploadForm from '$lib/components/dashboard/CSVUploadForm.svelte';
-  import { Users, Mail, MousePointer } from 'lucide-svelte';
-
-  // Ora puoi usare $products in markup
+  import ProductTable from '$lib/components/dashboard/product/ProductTable.svelte';
 </script>
 
-<StatCardGrid>
-  <StatCard
-    title="Totale Prodotti"
-    value={$products.length.toString()}
-    icon={Users}
-    trend="up"
-    trendValue="122"
-    href="/prodotti"
-  />
-  <StatCard
-    title="Utile minimo"
-    value="20%"
-    icon={Mail}
-    trend="down"
-    trendValue="0.5%"
-    href="/prezzi"
-  />
-  <StatCard
-    title="Sconti Applicati"
-    value="154"
-    icon={MousePointer}
-    trend="up"
-    trendValue="10%"
-    href="/sconti"
-  />
-</StatCardGrid>
-
-<section class="space-y-6 px-6">
-  <div>
-    <h1 class="text-2xl font-semibold mb-2">I tuoi prodotti</h1>
+<div class="flex h-full flex-1 flex-col">
+  <!-- Header: form CSV + Export button -->
+  <div class="flex items-center justify-between bg-white p-6 shadow">
     <CSVUploadForm />
+    {#if $rawUploads.length}
+      <Button
+        variant="outline"
+        on:click={() => goto(`/export/${$rawUploads[$rawUploads.length - 1].id}`)}
+      >
+        Esporta CSV
+      </Button>
+    {/if}
   </div>
-  <div class="w-full overflow-x-auto">
-    <ProductTable />
+
+  <!-- Corpo: scroll interno verticale e orizzontale sempre visibile -->
+  <div class="flex min-h-0 flex-1">
+    <div class="min-h-0 flex-1 overflow-y-auto">
+      <div class="min-w-max overflow-x-auto bg-white shadow-sm">
+        <ProductTable />
+      </div>
+    </div>
   </div>
-</section>
+</div>

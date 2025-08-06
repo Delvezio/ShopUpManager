@@ -1,79 +1,149 @@
 <!-- src/lib/components/dashboard/product/ProductRow.svelte -->
 <script lang="ts">
-    import EditableCell from '$lib/components/ui/EditableCell.svelte';
-    import DiscountToggle from '$lib/components/ui/DiscountToggle.svelte';
-  
-    export let product: any;
-    /** Callback che il padre usa per salvare le modifiche */
-    export let onUpdate: (updated: any) => void;
-  
-    function updateField(field: string, value: any) {
-      // Normalizzo i numeri se serve
-      const parsed = typeof value === 'string' && /^\d+(\.\d+)?$/.test(value)
-        ? parseFloat(value)
-        : value;
-      product[field] = parsed;
-      onUpdate(product);
-    }
-  
-    function toggleField(field: string, checked: boolean) {
-      product[field] = checked;
-      onUpdate(product);
-    }
-  </script>
-  
-  <tr class="border-b border-gray-200 text-sm text-gray-800">
-    <td class="px-4 sm:px-6 py-2">{product.handle}</td>
-    <td class="px-4 sm:px-6 py-2">{product.sku}</td>
-  
-    <!-- Nome prodotto editabile -->
-    <td class="px-4 sm:px-6 py-2">
-      <EditableCell
-        value={product.name}
-        onChange={(v) => updateField('name', v)}
-        className="text-gray-900 text-sm"
+  import { get } from 'svelte/store';
+  import { userPreferences } from '$lib/stores/userPreferences';
+  import type { Product } from '$lib/types/products';
+  import DiscountToggle from '$lib/components/ui/DiscountToggle.svelte';
+
+  export let product: Product;
+  export let onUpdate: (updated: Product) => void;
+
+  // Estrai preferenze utente
+  const { marginTarget, shippingCost, freeShippingThreshold } = get(userPreferences);
+
+  // Calcolo Sconto Max percentuale
+  $: costWithVat = product.costPrice * (1 + product.iva / 100);
+  $: shipImpact = shippingCost / freeShippingThreshold;
+  $: marginDecimal = marginTarget / 100;
+  $: minSale = (costWithVat + shipImpact) / (1 - marginDecimal);
+  $: maxDiscountPct = Math.max(0, ((product.listPrice - minSale) / product.listPrice) * 100);
+
+  // Toggle Sconto Max (radio)
+  function handleMaxToggle(active: boolean) {
+    const salePrice = active
+      ? Math.round(product.listPrice * (1 - maxDiscountPct / 100) * 100) / 100
+      : product.listPrice;
+    onUpdate({
+      ...product,
+      maxDiscountActive: active,
+      customDiscountActive: false,
+      customPriceActive: false,
+      salePrice
+    });
+  }
+
+  // Toggle Sconto Custom (radio)
+  function handleCustomToggle(active: boolean) {
+    const pct = product.customDiscountPct ?? 0;
+    const salePrice = active
+      ? Math.round(product.listPrice * (1 - pct / 100) * 100) / 100
+      : product.listPrice;
+    onUpdate({
+      ...product,
+      maxDiscountActive: false,
+      customDiscountActive: active,
+      customPriceActive: false,
+      salePrice
+    });
+  }
+
+  // Input percentuale Custom
+  function handleCustomInput(e: Event) {
+    const raw = (e.target as HTMLInputElement).value;
+    const pct = raw === '' ? 0 : parseFloat(raw) || 0;
+    const salePrice = Math.round(product.listPrice * (1 - pct / 100) * 100) / 100;
+    onUpdate({
+      ...product,
+      maxDiscountActive: false,
+      customDiscountActive: true,
+      customDiscountPct: pct,
+      customPriceActive: false,
+      salePrice
+    });
+  }
+
+  // Toggle Prezzo Finale (radio)
+  function handlePriceToggle(active: boolean) {
+    const salePrice = active ? product.salePrice : product.listPrice;
+    onUpdate({
+      ...product,
+      maxDiscountActive: false,
+      customDiscountActive: false,
+      customPriceActive: active,
+      salePrice
+    });
+  }
+
+  // Input prezzo manuale Finale
+  function handlePriceInput(e: Event) {
+    const raw = (e.target as HTMLInputElement).value;
+    const price = raw === '' ? product.listPrice : parseFloat(raw) || product.listPrice;
+    onUpdate({
+      ...product,
+      maxDiscountActive: false,
+      customDiscountActive: false,
+      customPriceActive: true,
+      salePrice: price
+    });
+  }
+</script>
+
+<tr>
+  <td class="px-4 py-2">{product.handle}</td>
+  <td class="px-4 py-2">{product.sku}</td>
+  <td class="px-4 py-2">{product.name}</td>
+  <td class="px-4 py-2">{product.barcode}</td>
+  <td class="px-4 py-2">{costWithVat.toFixed(2)}</td>
+  <td class="px-4 py-2">{product.iva}%</td>
+  <td class="px-4 py-2">{product.listPrice.toFixed(2)}</td>
+
+  <!-- Sconto Max -->
+  <td class="px-4 py-2">
+    <div class="flex items-center gap-2">
+      <DiscountToggle
+        checked={product.maxDiscountActive}
+        on:toggle={(e) => handleMaxToggle(e.detail)}
       />
-    </td>
-  
-    <td class="px-4 sm:px-6 py-2">{product.barcode}</td>
-    <td class="px-4 sm:px-6 py-2 text-left">{product.cost_price}€</td>
-    <td class="px-4 sm:px-6 py-2 text-left">{product.full_price}€</td>
-    
-  
-    <!-- Sconto Max + toggle -->
-    <td class="px-4 sm:px-6 py-2 text-left">
-      <div class="flex items-center justify-start gap-2">
-        <DiscountToggle
-          checked={product.max_discount_active}
-          onToggle={(v) => toggleField('max_discount_active', v)}
-        />
-        <span class="whitespace-nowrap">{product.max_discount}%</span>
-      </div>
-    </td>
-  
-    <!-- Sconto Custom + toggle -->
-    <td class="px-4 sm:px-6 py-2 text-left">
-      <div class="flex items-center justify-start gap-2">
-        
-        <DiscountToggle
-          checked={product.custom_discount_active}
-          onToggle={(v) => toggleField('custom_discount_active', v)}
-        />
-        <EditableCell
-          type="text"
-          value={product.custom_discount ?? ''}
-          placeholder="es. 10%"
-          onChange={(v) => updateField('custom_discount', v)}
-          className="w-16 text-left"
-        />
-      </div>
-    </td>
+      <span>{maxDiscountPct.toFixed(1)}%</span>
+    </div>
+  </td>
 
-    <td class="px-4 sm:px-6 py-2 text-left">{product.discount_price}€</td>
-    <td class="px-4 sm:px-6 py-2 text-center">{product.stock}</td>
-    <td class="px-4 sm:px-6 py-2 text-left">{product.sync_status}</td>
-    <td class="px-4 sm:px-6 py-2 text-sm text-gray-500">{product.last_updated}</td>
+  <!-- Sconto Custom -->
+  <td class="px-4 py-2">
+    <div class="flex items-center gap-2">
+      <DiscountToggle
+        checked={product.customDiscountActive}
+        on:toggle={(e) => handleCustomToggle(e.detail)}
+      />
+      <input
+        type="number"
+        min="0"
+        max="100"
+        step="0.1"
+        class="w-16 rounded border p-1 text-sm"
+        value={product.customDiscountPct ?? ''}
+        on:input={handleCustomInput}
+      />
+    </div>
+  </td>
 
+  <!-- Prezzo Finale -->
+  <td class="px-4 py-2">
+    <div class="flex items-center gap-2">
+      <DiscountToggle
+        checked={product.customPriceActive}
+        on:toggle={(e) => handlePriceToggle(e.detail)}
+      />
+      <input
+        type="number"
+        class="w-20 rounded border p-1 text-sm"
+        value={product.salePrice}
+        on:input={handlePriceInput}
+      />
+    </div>
+  </td>
 
-  </tr>
-  
+  <td class="px-4 py-2">{product.stock}</td>
+  <td class="px-4 py-2">{product.syncState}</td>
+  <td class="px-4 py-2">{product.updatedAt.toLocaleString()}</td>
+</tr>

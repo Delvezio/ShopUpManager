@@ -1,60 +1,104 @@
 <!-- src/lib/components/dashboard/CSVUploadForm.svelte -->
-
 <script lang="ts">
+  import Papa from 'papaparse';
   import Button from '$lib/components/ui/Button.svelte';
-  import * as Papa from 'papaparse';
+  import { rawUploads, type CsvRow } from '$lib/stores/rawUploads';
   import { products } from '$lib/stores/products';
   import type { Product } from '$lib/types/products';
+  import { get } from 'svelte/store';
+  import { userPreferences } from '$lib/stores/userPreferences';
   import { v4 as uuidv4 } from 'uuid';
 
   let fileInput: HTMLInputElement | null = null;
 
-  // per vedere se il click arriva
   function openFileDialog() {
-    console.log('⚡ openFileDialog() called, fileInput=', fileInput);
     fileInput?.click();
   }
 
   function handleFilesChange() {
-    console.log('📄 handleFilesChange() fired, selected:', fileInput?.files);
     const file = fileInput?.files?.[0];
-    if (file) parseCsv(file);
-    // resettiamo così da poter ricaricare lo stesso file più volte
+    if (!file) return;
+    parseCsv(file);
     if (fileInput) fileInput.value = '';
   }
 
   function parseCsv(file: File) {
-    console.log('🔍 parseCsv', file.name);
-    Papa.parse(file, {
+    // Estrai preferenze utente
+    const prefs = get(userPreferences);
+
+    Papa.parse<CsvRow>(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results: { data: Record<string, string>[] }) => {
-        console.log('✅ CSV parsed, rows:', results.data.length);
-        const parsed: Product[] = results.data.map(row => ({
-          handle:            row['Handle']          ?? '',
-          sku:               row['SKU']             ?? '',
-          name:              row['Nome Prodotto']   ?? '',
-          barcode:           row['Barcode']         ?? '',
-          costPrice:         parseFloat(row['Prezzo di Costo'] ?? '0'),
-          listPrice:         parseFloat(row['Prezzo Pieno']    ?? '0'),
-          salePrice:         parseFloat(row['Prezzo Scontato'] ?? row['Prezzo Pieno'] ?? '0'),
-          stock:             parseInt(row['Giacenza']           ?? '0', 10),
-          syncState:         'pending',
-          updatedAt:         new Date(),
-          maxDiscountActive: false,
-          customDiscountActive: false,
-          customDiscountPct: undefined
-        }));
+      complete: (results) => {
+        const rows = results.data;
+
+        // Correggi intestazione duplicata di Giacenza
+        rows.forEach((row) => {
+          if ('Prezzo Pieno_1' in row) {
+            row['Giacenza'] = row['Prezzo Pieno_1'];
+            delete row['Prezzo Pieno_1'];
+          }
+        });
+
+        const parsed: Product[] = rows.map((row) => {
+          // Normalizza i numeri da stringa
+          const costPrice = parseFloat(
+            String(row['Prezzo di Costo'] ?? '0')
+              .replace(/[^0-9.,-]/g, '')
+              .replace(',', '.')
+          );
+          const iva = parseFloat(String(row['IVA'] ?? '0'));
+          const listPrice = parseFloat(
+            String(row['Prezzo Pieno'] ?? '0')
+              .replace(/[^0-9.,-]/g, '')
+              .replace(',', '.')
+          );
+          const stock = parseInt(String(row['Giacenza'] ?? '0'), 10);
+
+          // Calcolo Sconto Max
+          const costWithVat = costPrice * (1 + iva / 100);
+          const shipImpact = prefs.shippingCost / prefs.freeShippingThreshold;
+          const marginDecimal = prefs.marginTarget / 100;
+          const minSale = (costWithVat + shipImpact) / (1 - marginDecimal);
+          const maxDiscountPct = Math.max(0, ((listPrice - minSale) / listPrice) * 100);
+
+          // Prezzo finale calcolato su Sconto Max
+          const salePrice = Math.round(listPrice * (1 - maxDiscountPct / 100) * 100) / 100;
+
+          return {
+            handle: String(row['Handle'] ?? ''),
+            sku: String(row['SKU'] ?? ''),
+            name: String(row['Nome Prodotto'] ?? ''),
+            barcode: String(row['Barcode'] ?? ''),
+            costPrice,
+            iva,
+            listPrice,
+            salePrice,
+            stock,
+            syncState: 'pending',
+            updatedAt: new Date(),
+            maxDiscountActive: true, // selezionato di default
+            customDiscountActive: false,
+            customDiscountPct: undefined,
+            customPriceActive: false,
+            maxDiscountPct
+          };
+        });
+
+        // Popola lo store prodotti
         products.set(parsed);
+
+        // Registra raw upload (senza redirect)
+        const id = uuidv4();
+        rawUploads.update((arr) => [...arr, { id, filename: file.name, data: rows }]);
       },
-      error: (err: any) => {
+      error: (err) => {
         console.error('Parsing error:', err);
       }
     });
   }
 </script>
 
-<!-- INPUT nascosto, ma legato a fileInput -->
 <input
   type="file"
   accept=".csv"
@@ -63,12 +107,4 @@
   on:change={handleFilesChange}
 />
 
-<!-- Pulsante di debugging “grezzo” -->
-<button on:click={openFileDialog} class="mb-2 px-4 py-2 bg-gray-200 rounded">
-  Test Apri Dialog
-</button>
-
-<!-- Il tuo Button “Carica CSV” -->
-<Button on:click={openFileDialog} variant="primary">
-  Carica CSV
-</Button>
+<Button onClick={openFileDialog} variant="primary">Carica CSV</Button>

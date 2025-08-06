@@ -1,0 +1,15 @@
+{
+  // Format automatico ad ogni salvataggio
+  "editor.formatOnSave": true,
+
+  // Prettier come formatter di default
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+
+  // Assicurati che per i Svelte usi Prettier
+  "[svelte]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // (Opzionale) Disabilita altri formatter per Svelte
+  "svelte.plugin.svelte.enable-ts-plugin": true
+}
