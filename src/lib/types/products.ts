@@ -16,7 +16,7 @@ export interface Product {
   /** Percentuale di sconto calcolata per mantenere il margine target */
   maxDiscountPct?: number;
   /** Abilita prezzo manuale (lock) */
-  customPriceActive?: boolean;
+  customPriceActive: boolean; // <-- rimosso ?
   /** Percentuale di sconto manuale inserita */
   customDiscountPct?: number;
 }

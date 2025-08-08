@@ -1,25 +1,54 @@
-<!-- src/lib/components/dashboard/product/ProductRow.svelte -->
 <script lang="ts">
   import { get } from 'svelte/store';
   import { userPreferences } from '$lib/stores/userPreferences';
   import type { Product } from '$lib/types/products';
-  import DiscountToggle from '$lib/components/ui/DiscountToggle.svelte';
+  import DiscountToggle from '$lib/components/ui/discounttoggle/DiscountToggle.svelte';
+  import ConfirmModal from '$lib/components/ui/modal/ConfirmModal.svelte';
 
   export let product: Product;
   export let onUpdate: (updated: Product) => void;
 
-  // Estrai preferenze utente
   const { marginTarget, shippingCost, freeShippingThreshold } = get(userPreferences);
 
-  // Calcolo Sconto Max percentuale
   $: costWithVat = product.costPrice * (1 + product.iva / 100);
   $: shipImpact = shippingCost / freeShippingThreshold;
   $: marginDecimal = marginTarget / 100;
   $: minSale = (costWithVat + shipImpact) / (1 - marginDecimal);
   $: maxDiscountPct = Math.max(0, ((product.listPrice - minSale) / product.listPrice) * 100);
 
-  // Toggle Sconto Max (radio)
+  let showConfirmModal = false;
+  let pendingToggle: { type: 'SM' | 'SC'; activate: boolean } | null = null;
+
+  type ButtonConfig = {
+    label: string;
+    onClick: () => void;
+    variant?: 'primary' | 'outline';
+    disabled?: boolean;
+  };
+
+  let buttons: ButtonConfig[] = [
+    {
+      label: 'Conferma',
+      variant: 'primary',
+      onClick: confirmOverride
+    },
+    {
+      label: 'Annulla',
+      variant: 'outline',
+      onClick: cancelOverride
+    }
+  ];
+
   function handleMaxToggle(active: boolean) {
+    if (product.customPriceActive && active) {
+      pendingToggle = { type: 'SM', activate: active };
+      showConfirmModal = true;
+      return;
+    }
+    applyMaxToggle(active);
+  }
+
+  function applyMaxToggle(active: boolean) {
     const salePrice = active
       ? Math.round(product.listPrice * (1 - maxDiscountPct / 100) * 100) / 100
       : product.listPrice;
@@ -32,8 +61,16 @@
     });
   }
 
-  // Toggle Sconto Custom (radio)
   function handleCustomToggle(active: boolean) {
+    if (product.customPriceActive && active) {
+      pendingToggle = { type: 'SC', activate: active };
+      showConfirmModal = true;
+      return;
+    }
+    applyCustomToggle(active);
+  }
+
+  function applyCustomToggle(active: boolean) {
     const pct = product.customDiscountPct ?? 0;
     const salePrice = active
       ? Math.round(product.listPrice * (1 - pct / 100) * 100) / 100
@@ -47,22 +84,6 @@
     });
   }
 
-  // Input percentuale Custom
-  function handleCustomInput(e: Event) {
-    const raw = (e.target as HTMLInputElement).value;
-    const pct = raw === '' ? 0 : parseFloat(raw) || 0;
-    const salePrice = Math.round(product.listPrice * (1 - pct / 100) * 100) / 100;
-    onUpdate({
-      ...product,
-      maxDiscountActive: false,
-      customDiscountActive: true,
-      customDiscountPct: pct,
-      customPriceActive: false,
-      salePrice
-    });
-  }
-
-  // Toggle Prezzo Finale (radio)
   function handlePriceToggle(active: boolean) {
     const salePrice = active ? product.salePrice : product.listPrice;
     onUpdate({
@@ -74,7 +95,25 @@
     });
   }
 
-  // Input prezzo manuale Finale
+  function handleCustomInput(e: Event) {
+    const raw = (e.target as HTMLInputElement).value;
+    const pct = raw === '' ? 0 : parseFloat(raw) || 0;
+    if (product.customPriceActive) {
+      pendingToggle = { type: 'SC', activate: true };
+      showConfirmModal = true;
+      return;
+    }
+    const salePrice = Math.round(product.listPrice * (1 - pct / 100) * 100) / 100;
+    onUpdate({
+      ...product,
+      maxDiscountActive: false,
+      customDiscountActive: true,
+      customDiscountPct: pct,
+      customPriceActive: false,
+      salePrice
+    });
+  }
+
   function handlePriceInput(e: Event) {
     const raw = (e.target as HTMLInputElement).value;
     const price = raw === '' ? product.listPrice : parseFloat(raw) || product.listPrice;
@@ -85,6 +124,22 @@
       customPriceActive: true,
       salePrice: price
     });
+  }
+
+  function confirmOverride() {
+    if (!pendingToggle) return;
+    if (pendingToggle.type === 'SM') {
+      applyMaxToggle(pendingToggle.activate);
+    } else if (pendingToggle.type === 'SC') {
+      applyCustomToggle(pendingToggle.activate);
+    }
+    showConfirmModal = false;
+    pendingToggle = null;
+  }
+
+  function cancelOverride() {
+    showConfirmModal = false;
+    pendingToggle = null;
   }
 </script>
 
@@ -97,24 +152,16 @@
   <td class="px-4 py-2">{product.iva}%</td>
   <td class="px-4 py-2">{product.listPrice.toFixed(2)}</td>
 
-  <!-- Sconto Max -->
   <td class="px-4 py-2">
     <div class="flex items-center gap-2">
-      <DiscountToggle
-        checked={product.maxDiscountActive}
-        on:toggle={(e) => handleMaxToggle(e.detail)}
-      />
+      <DiscountToggle checked={product.maxDiscountActive} onToggle={handleMaxToggle} />
       <span>{maxDiscountPct.toFixed(1)}%</span>
     </div>
   </td>
 
-  <!-- Sconto Custom -->
   <td class="px-4 py-2">
     <div class="flex items-center gap-2">
-      <DiscountToggle
-        checked={product.customDiscountActive}
-        on:toggle={(e) => handleCustomToggle(e.detail)}
-      />
+      <DiscountToggle checked={product.customDiscountActive} onToggle={handleCustomToggle} />
       <input
         type="number"
         min="0"
@@ -127,13 +174,9 @@
     </div>
   </td>
 
-  <!-- Prezzo Finale -->
   <td class="px-4 py-2">
     <div class="flex items-center gap-2">
-      <DiscountToggle
-        checked={product.customPriceActive}
-        on:toggle={(e) => handlePriceToggle(e.detail)}
-      />
+      <DiscountToggle checked={product.customPriceActive} onToggle={handlePriceToggle} />
       <input
         type="number"
         class="w-20 rounded border p-1 text-sm"
@@ -146,4 +189,12 @@
   <td class="px-4 py-2">{product.stock}</td>
   <td class="px-4 py-2">{product.syncState}</td>
   <td class="px-4 py-2">{product.updatedAt.toLocaleString()}</td>
+
+  {#if showConfirmModal}
+    <ConfirmModal
+      title="Conferma modifica"
+      message="Il prezzo finale è bloccato. Attivando questo sconto, il prezzo manuale verrà modificato. Vuoi procedere?"
+      {buttons}
+    />
+  {/if}
 </tr>
