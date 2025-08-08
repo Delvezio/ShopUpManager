@@ -4,7 +4,7 @@
   import { derived, writable, get } from 'svelte/store';
   import { rawUploads, type UploadedFile } from '$lib/stores/rawUploads';
   import Button from '$lib/components/ui/Button.svelte';
-  import { json2csv } from '$lib/utils/exportCsv'; // util to implement later
+  import { json2csv } from '$features/csv/services'; // util to implement later
 
   // Parametro dinamico uploadId
   const uploadId = derived(page, ($page) => $page.params.uploadId);
