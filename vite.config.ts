@@ -13,8 +13,8 @@ export default defineConfig({
       $features: path.resolve('./src/lib/features'),
       // servizi / orchestratori
       $services: path.resolve('./src/lib/services'),
-      // componenti atomici UI
-      $ui: path.resolve('./src/lib/ui')
+      // componenti atomici UI (modificato)
+      $ui: path.resolve('./src/lib/components/ui')
     }
   }
 });
