@@ -9,7 +9,13 @@
     "skipLibCheck": true,
     "sourceMap": true,
     "strict": true,
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    "paths": {
+      "$lib/*": ["src/lib/*"],
+      "$features/*": ["src/lib/features/*"],
+      "$services/*": ["src/lib/services/*"],
+      "$ui/*": ["src/lib/ui/*"]
+    }
   },
   "include": ["src/**/*", "src/global.d.ts", ".svelte-kit/types/**/*.d.ts"]
 }
