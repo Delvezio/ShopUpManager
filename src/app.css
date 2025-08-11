@@ -3,22 +3,193 @@
 @import 'tailwindcss';
 
 @theme {
-    --color-primary: #22a1b8; /* Base centrale della palette Casal */
+  --color-primary: #22a1b8; /* Base centrale della palette Casal */
 
-    --color-primary-50:  #effcfc;
-    --color-primary-100: #d5f5f8;
-    --color-primary-200: #b1e9f0;
-    --color-primary-300: #7bd8e5;
-    --color-primary-400: #3ebdd2;
-    --color-primary-500: #22a1b8; /* Identico a --color-primary */
-    --color-primary-600: #1f829b;
-    --color-primary-700: #1e6377;
-    --color-primary-800: #225668;
-    --color-primary-900: #214858;
-    --color-primary-950: #102f3c;
-    --color-success: #10b981;
-    --color-error: #ef4444;
-  }
+  --color-primary-50: #effcfc;
+  --color-primary-100: #d5f5f8;
+  --color-primary-200: #b1e9f0;
+  --color-primary-300: #7bd8e5;
+  --color-primary-400: #3ebdd2;
+  --color-primary-500: #22a1b8; /* Identico a --color-primary */
+  --color-primary-600: #1f829b;
+  --color-primary-700: #1e6377;
+  --color-primary-800: #225668;
+  --color-primary-900: #214858;
+  --color-primary-950: #102f3c;
+  --color-success: #10b981;
+  --color-error: #ef4444;
+
+  /* colori: hai già --color-primary-*; aggiungo semantic surface/fg/bg */
+  --color-bg: #0b1115;
+  --color-surface: #0f1720;
+  --color-fg: #e5f6fb;
+  --color-muted: #7aa7b5;
+  --color-accent: #8b5cf6;
+  --color-warning: #f59e0b;
+  --color-info: #3b82f6;
+
+  /* tipografia */
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, 'Helvetica Neue', Arial,
+    'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji';
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-base: 1rem; /* 16px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.25rem; /* 20px */
+  --text-2xl: 1.5rem; /* 24px */
+  --text-3xl: 1.875rem; /* 30px */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+
+  /* spacing scale (rem) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 2rem;
+  --space-8: 3rem;
+
+  /* radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-2xl: 1rem;
+
+  /* shadow (usiamo valori CSS custom per consistenza) */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  /* ring & transition */
+  --ring-color: var(--color-primary-400);
+  --ring-width: 2px;
+  --transition-fast: 120ms;
+  --transition-normal: 200ms;
+  --transition-slow: 320ms;
+
+  /* breakpoints (solo per reference; Tailwind usa i suoi) */
+  --bp-sm: 640px;
+  --bp-md: 768px;
+  --bp-lg: 1024px;
+  --bp-xl: 1280px;
+  --bp-2xl: 1536px;
+
+  /* alias semantici per bordi e divider */
+  --color-border: color-mix(in oklab, var(--color-fg) 12%, transparent);
+  --color-divider: color-mix(in oklab, var(--color-fg) 6%, transparent);
+}
+
+:root {
+  color: var(--color-fg);
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+}
+
+/* ===== Utilities semantiche ===== */
+/* ===== Utilities semantiche (senza @utility) ===== */
+
+/* Superficie/card di base */
+.surface {
+  background-color: var(--color-surface);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Focus ring coerente con i token */
+.focus-ring {
+  outline: var(--ring-width) solid var(--ring-color);
+  outline-offset: 2px;
+}
+
+/* ===== Button primitives (base + varianti + size) ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding-inline: var(--space-4);
+  height: 2.5rem; /* size md */
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+  transition:
+    transform var(--transition-fast),
+    opacity var(--transition-fast),
+    background-color var(--transition-fast);
+}
+.btn:focus-visible {
+  outline: var(--ring-width) solid var(--ring-color);
+  outline-offset: 2px;
+}
+.btn:disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.btn-primary {
+  background-color: var(--color-primary-500);
+  color: oklch(99% 0 0);
+}
+.btn-primary:hover {
+  background-color: var(--color-primary-600);
+}
+
+.btn-secondary {
+  background-color: color-mix(in oklab, var(--color-primary-500) 12%, transparent);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--color-fg);
+  border: 1px solid transparent;
+}
+.btn-ghost:hover {
+  background-color: color-mix(in oklab, var(--color-fg) 6%, transparent);
+}
+
+/* Size helpers */
+.btn-sm {
+  height: 2rem;
+  font-size: var(--text-xs);
+  padding-inline: var(--space-3);
+}
+.btn-lg {
+  height: 3rem;
+  font-size: var(--text-base);
+  padding-inline: var(--space-5);
+}
+
+/* ===== Input / Fieldset ===== */
+.input {
+  width: 100%;
+  background-color: var(--color-surface);
+  color: var(--color-fg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+}
+.input:focus-visible {
+  outline: var(--ring-width) solid var(--ring-color);
+  outline-offset: 2px;
+}
+
+/* ===== Divider / Card helpers ===== */
+.divider {
+  border-color: var(--color-divider);
+}
+.card {
+  padding: var(--space-4);
+}
 
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';

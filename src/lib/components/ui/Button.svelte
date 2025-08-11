@@ -1,3 +1,5 @@
+<!-- src/lib/components/ui/Button.svelte -->
+
 <script lang="ts">
   export let type: 'button' | 'submit' | 'reset' = 'button';
   export let variant: 'primary' | 'outline' = 'primary';

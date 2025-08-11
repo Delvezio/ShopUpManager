@@ -4,19 +4,33 @@ export interface Product {
   sku: string;
   name: string;
   barcode: string;
-  costPrice: number;
+  /** Costo effettivo del prodotto */
+  cost: number;
+  /** Aliquota IVA (%) */
   iva: number;
-  listPrice: number;
+  /** Prezzo pieno originale (List Price) */
+  basePrice: number;
+  /** Prezzo di vendita corrente (Sale Price) */
   salePrice: number;
+  /** Quantità disponibile */
   stock: number;
+  /** Stato di sincronizzazione */
   syncState: 'pending' | 'synced' | 'error';
+  /** Data ultimo aggiornamento */
   updatedAt: Date;
+
+  /** Toggle iniziale per Sconto Massimo (SM) */
   maxDiscountActive: boolean;
-  customDiscountActive: boolean;
-  /** Percentuale di sconto calcolata per mantenere il margine target */
+
+  /** Percentuale di sconto massimo calcolato */
   maxDiscountPct?: number;
-  /** Abilita prezzo manuale (lock) */
-  customPriceActive: boolean; // <-- rimosso ?
-  /** Percentuale di sconto manuale inserita */
+
+  /** Percentuale di sconto custom inserito */
   customDiscountPct?: number;
+
+  /** Prezzo bloccato manualmente */
+  fixedPrice?: number;
+
+  /** Toggle attivo sulla riga per SM, SC, PF o nessuno */
+  activeToggle?: 'SM' | 'SC' | 'PF' | 'NONE';
 }

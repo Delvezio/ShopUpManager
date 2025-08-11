@@ -1,0 +1,104 @@
+Last login: Sat Aug  9 08:51:23 on ttys002
+alessandroacciardi@Mac-mini ~ % cd sites
+alessandroacciardi@Mac-mini sites % cd ShopUpManager
+alessandroacciardi@Mac-mini ShopUpManager % tree -I "node_modules|.git"
+.
+├── Mermaid.js
+├── README.md
+├── docs
+│   ├── Progress_Atomic.md
+│   ├── agent_context_flat.txt
+│   ├── agent_instructions.txt
+│   ├── context_base.md
+│   ├── progress.md
+│   ├── roadmap.md
+│   └── ui_rules.md
+├── eslint.config.js
+├── global.d.ts
+├── package-lock.json
+├── package.json
+├── src
+│   ├── app.css
+│   ├── app.d.ts
+│   ├── app.html
+│   ├── lib
+│   │   ├── components
+│   │   │   ├── ForgotPasswordForm.svelte
+│   │   │   ├── LoginForm.svelte
+│   │   │   ├── LoginSideImage.svelte
+│   │   │   ├── RegisterForm.svelte
+│   │   │   ├── dashboard
+│   │   │   │   ├── CSVUploadForm.svelte
+│   │   │   │   ├── DashboardLayout.svelte
+│   │   │   │   ├── StatCardGrid.svelte
+│   │   │   │   ├── product
+│   │   │   │   │   ├── ProductCell.svelte
+│   │   │   │   │   ├── ProductRow.svelte
+│   │   │   │   │   └── ProductTable.svelte
+│   │   │   │   ├── sidebar
+│   │   │   │   │   ├── Sidebar.svelte
+│   │   │   │   │   ├── SidebarNav.svelte
+│   │   │   │   │   └── SidebarNavItem.svelte
+│   │   │   │   └── topbar
+│   │   │   │       ├── Topbar.svelte
+│   │   │   │       └── TopbarUserMenu.svelte
+│   │   │   └── ui
+│   │   │       ├── AuthLink.svelte
+│   │   │       ├── Button.svelte
+│   │   │       ├── DiscountToggle.svelte
+│   │   │       ├── EditableCell.svelte
+│   │   │       ├── Icon.svelte
+│   │   │       ├── SettingsModal.svelte
+│   │   │       ├── card
+│   │   │       │   └── StatCard.svelte
+│   │   │       ├── discounttoggle
+│   │   │       │   ├── DiscountToggle.svelte
+│   │   │       │   └── DiscountToggle.svelte.d.ts
+│   │   │       ├── dropdown
+│   │   │       │   ├── DropdownMenu.svelte
+│   │   │       │   └── DropdownMenuItem.svelte
+│   │   │       └── modal
+│   │   │           └── ConfirmModal.svelte
+│   │   ├── constants
+│   │   │   ├── products.ts
+│   │   │   ├── sidebarMainNav.ts
+│   │   │   └── sidebarUtilityNav.ts
+│   │   ├── features
+│   │   │   ├── csv
+│   │   │   │   └── services.ts
+│   │   │   └── price
+│   │   │       └── utils.ts
+│   │   ├── index.ts
+│   │   ├── services
+│   │   ├── stores
+│   │   │   ├── products.ts
+│   │   │   ├── rawUploads.ts
+│   │   │   └── userPreferences.ts
+│   │   ├── types
+│   │   │   └── products.ts
+│   │   └── utils
+│   │       └── onClickOutside.ts
+│   └── routes
+│       ├── +layout.svelte
+│       ├── +page.svelte
+│       ├── dashboard
+│       │   ├── +layout.svelte
+│       │   └── +page.svelte
+│       ├── export
+│       │   └── [uploadId]
+│       │       └── +page.svelte
+│       ├── forgot-password
+│       │   └── +page.svelte
+│       ├── login
+│       │   └── +page.svelte
+│       ├── register
+│       │   └── +page.svelte
+│       └── settings
+│           └── +page.svelte
+├── static
+│   └── favicon.svg
+├── svelte.config.js
+├── tsconfig.json
+└── vite.config.ts
+
+31 directories, 67 files

@@ -11,90 +11,81 @@
 
   let fileInput: HTMLInputElement | null = null;
 
-  function openFileDialog() {
-    fileInput?.click();
+  function openFileDialog(): void {
+    if (!fileInput) return;
+    fileInput.click();
   }
 
-  function handleFilesChange() {
-    const file = fileInput?.files?.[0];
+  function handleFilesChange(): void {
+    if (!fileInput || !fileInput.files) return;
+    const file = fileInput.files[0];
     if (!file) return;
     parseCsv(file);
-    if (fileInput) fileInput.value = '';
+    fileInput.value = '';
   }
 
-  function parseCsv(file: File) {
-    // Estrai preferenze utente
+  function parseCsv(file: File): void {
     const prefs = get(userPreferences);
-
     Papa.parse<CsvRow>(file, {
       header: true,
       skipEmptyLines: true,
-      complete: (results) => {
-        const rows = results.data;
-
-        // Correggi intestazione duplicata di Giacenza
-        rows.forEach((row) => {
+      complete: ({ data: rows }) => {
+        (rows as CsvRow[]).forEach((row) => {
           if ('Prezzo Pieno_1' in row) {
             row['Giacenza'] = row['Prezzo Pieno_1'];
             delete row['Prezzo Pieno_1'];
           }
         });
 
-        const parsed: Product[] = rows.map((row) => {
-          // Normalizza i numeri da stringa
-          const costPrice = parseFloat(
+        const parsed: Product[] = (rows as CsvRow[]).map((row) => {
+          const cost = parseFloat(
             String(row['Prezzo di Costo'] ?? '0')
               .replace(/[^0-9.,-]/g, '')
               .replace(',', '.')
           );
-          const iva = parseFloat(String(row['IVA'] ?? '0'));
-          const listPrice = parseFloat(
+          const iva = parseFloat(String(row['IVA'] ?? '0').replace(',', '.'));
+          const basePrice = parseFloat(
             String(row['Prezzo Pieno'] ?? '0')
               .replace(/[^0-9.,-]/g, '')
               .replace(',', '.')
           );
           const stock = parseInt(String(row['Giacenza'] ?? '0'), 10);
 
-          // Calcolo Sconto Max
-          const costWithVat = costPrice * (1 + iva / 100);
+          const costWithVat = cost * (1 + iva / 100);
           const shipImpact = prefs.shippingCost / prefs.freeShippingThreshold;
-          const marginDecimal = prefs.marginTarget / 100;
+          const marginDecimal = prefs.targetMarginPercent / 100;
           const minSale = (costWithVat + shipImpact) / (1 - marginDecimal);
-          const maxDiscountPct = Math.max(0, ((listPrice - minSale) / listPrice) * 100);
-
-          // Prezzo finale calcolato su Sconto Max
-          const salePrice = Math.round(listPrice * (1 - maxDiscountPct / 100) * 100) / 100;
+          const maxDiscountPct = Math.max(0, ((basePrice - minSale) / basePrice) * 100);
+          const salePrice = Math.round(basePrice * (1 - maxDiscountPct / 100) * 100) / 100;
 
           return {
             handle: String(row['Handle'] ?? ''),
             sku: String(row['SKU'] ?? ''),
             name: String(row['Nome Prodotto'] ?? ''),
             barcode: String(row['Barcode'] ?? ''),
-            costPrice,
+            cost,
             iva,
-            listPrice,
+            basePrice,
             salePrice,
             stock,
             syncState: 'pending',
             updatedAt: new Date(),
-            maxDiscountActive: true, // selezionato di default
-            customDiscountActive: false,
+            // Toggle iniziale Sconto Massimo (SM)
+            maxDiscountActive: true,
+            maxDiscountPct,
             customDiscountPct: undefined,
-            customPriceActive: false,
-            maxDiscountPct
+            fixedPrice: undefined,
+            activeToggle: 'SM'
           };
         });
 
-        // Popola lo store prodotti
         products.set(parsed);
-
-        // Registra raw upload (senza redirect)
-        const id = uuidv4();
-        rawUploads.update((arr) => [...arr, { id, filename: file.name, data: rows }]);
+        rawUploads.update((arr) => [
+          ...arr,
+          { id: uuidv4(), filename: file.name, data: rows as CsvRow[] }
+        ]);
       },
-      error: (err) => {
-        console.error('Parsing error:', err);
-      }
+      error: (err) => console.error('Parsing error:', err)
     });
   }
 </script>

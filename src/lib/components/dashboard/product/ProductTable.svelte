@@ -1,286 +1,175 @@
+<!-- src/lib/components/dashboard/product/ProductTable.svelte -->
 <script lang="ts">
   import { products } from '$lib/stores/products';
   import type { Product } from '$lib/types/products';
   import DiscountToggle from '$lib/components/ui/discounttoggle/DiscountToggle.svelte';
   import ProductRow from './ProductRow.svelte';
-
   import ConfirmModal from '$lib/components/ui/modal/ConfirmModal.svelte';
   import DropdownMenu from '$lib/components/ui/dropdown/DropdownMenu.svelte';
   import DropdownMenuItem from '$lib/components/ui/dropdown/DropdownMenuItem.svelte';
+  import { get } from 'svelte/store';
+  import type { ActiveToggle } from '$features/price/utils';
 
-  import { writable } from 'svelte/store';
+  // Aggiorna singolo prodotto
+  function handleUpdate(updated: Product) {
+    products.update((all) => all.map((p) => (p.handle === updated.handle ? updated : p)));
+  }
 
-  $: maxAll = $products.length > 0 && $products.every((p) => p.maxDiscountActive);
-  $: maxIndeterminate = $products.some((p) => p.maxDiscountActive) && !maxAll;
+  // Stato per i modali e dropdown
+  let showConfirmModal = false;
+  let confirmTitle = '';
+  let confirmMessage = '';
+  let confirmAction: () => void;
 
-  $: customAll = $products.length > 0 && $products.every((p) => p.customDiscountActive);
-  $: customIndeterminate = $products.some((p) => p.customDiscountActive) && !customAll;
+  function openConfirm(title: string, message: string, action: () => void) {
+    confirmTitle = title;
+    confirmMessage = message;
+    confirmAction = action;
+    showConfirmModal = true;
+  }
+  function onConfirm() {
+    showConfirmModal = false;
+    confirmAction?.();
+  }
+  function onCancel() {
+    showConfirmModal = false;
+  }
 
-  $: priceAll = $products.length > 0 && $products.every((p) => p.customPriceActive);
-  $: priceIndeterminate = $products.some((p) => p.customPriceActive) && !priceAll;
+  // Dropdown di colonna
+  let smOpen = false;
+  let scOpen = false;
+  let pfOpen = false;
 
-  const maxDropdownOpen = writable(false);
-  const customDropdownOpen = writable(false);
-  const priceDropdownOpen = writable(false);
+  // Calcoli stati bulk toggle
+  $: allProducts = get(products);
+  $: total = allProducts.length;
+  $: maxAll = total > 0 && allProducts.every((p) => p.activeToggle === 'SM');
+  $: maxIndeterminate = total > 0 && allProducts.some((p) => p.activeToggle === 'SM') && !maxAll;
+  $: scAll = total > 0 && allProducts.every((p) => p.activeToggle === 'SC');
+  $: scIndeterminate = total > 0 && allProducts.some((p) => p.activeToggle === 'SC') && !scAll;
+  $: pfAll = total > 0 && allProducts.every((p) => p.activeToggle === 'PF');
+  $: pfIndeterminate = total > 0 && allProducts.some((p) => p.activeToggle === 'PF') && !pfAll;
 
-  function toggleColumn(
-    propToActivate: 'maxDiscountActive' | 'customDiscountActive' | 'customPriceActive',
-    activate: boolean
-  ): void {
-    products.update((allProducts) =>
-      allProducts.map((p) => ({
-        ...p,
-        maxDiscountActive: activate && propToActivate === 'maxDiscountActive',
-        customDiscountActive: activate && propToActivate === 'customDiscountActive',
-        customPriceActive: activate && propToActivate === 'customPriceActive',
-        salePrice: calculateSalePrice(p, propToActivate, activate)
-      }))
+  function bulkToggleType(type: ActiveToggle, onlyUnlocked = false) {
+    openConfirm(
+      `Applica ${type} a tutti`,
+      `Confermi di applicare ${type} a tutti i prodotti?`,
+      () =>
+        products.update((arr) =>
+          arr.map((p) =>
+            onlyUnlocked && p.activeToggle === 'PF' ? p : { ...p, activeToggle: type }
+          )
+        )
     );
   }
-
-  function calculateSalePrice(product: Product, prop: keyof Product, activate: boolean): number {
-    if (!activate) return product.listPrice;
-    if (prop === 'maxDiscountActive') {
-      const marginDecimal = 0.2;
-      const costWithVat = product.costPrice * (1 + product.iva / 100);
-      const minSale = (costWithVat + 5) / (1 - marginDecimal);
-      const maxDiscountPct = Math.max(0, ((product.listPrice - minSale) / product.listPrice) * 100);
-      return Math.round(product.listPrice * (1 - maxDiscountPct / 100) * 100) / 100;
-    } else if (prop === 'customDiscountActive') {
-      const pct = product.customDiscountPct ?? 0;
-      return Math.round(product.listPrice * (1 - pct / 100) * 100) / 100;
-    } else if (prop === 'customPriceActive') {
-      return product.salePrice;
-    }
-    return product.listPrice;
-  }
-
-  function onClickMaxToggle() {
-    if (maxIndeterminate) {
-      maxDropdownOpen.set(true);
-    } else {
-      toggleColumn('maxDiscountActive', !maxAll);
-    }
-  }
-
-  function activateAllMax() {
-    toggleColumn('maxDiscountActive', true);
-    maxDropdownOpen.set(false);
-  }
-  function deactivateAllMax() {
-    toggleColumn('maxDiscountActive', false);
-    maxDropdownOpen.set(false);
-  }
-  function closeMaxDropdown() {
-    maxDropdownOpen.set(false);
-  }
-
-  function onClickCustomToggle() {
-    if (customIndeterminate) {
-      customDropdownOpen.set(true);
-    } else {
-      toggleColumn('customDiscountActive', !customAll);
-    }
-  }
-
-  function activateAllCustom() {
-    toggleColumn('customDiscountActive', true);
-    customDropdownOpen.set(false);
-  }
-  function deactivateAllCustom() {
-    toggleColumn('customDiscountActive', false);
-    customDropdownOpen.set(false);
-  }
-  function closeCustomDropdown() {
-    customDropdownOpen.set(false);
-  }
-
-  function onClickPriceToggle() {
-    if (priceIndeterminate) {
-      priceDropdownOpen.set(true);
-    } else {
-      toggleColumn('customPriceActive', !priceAll);
-    }
-  }
-
-  function activateAllPrice() {
-    toggleColumn('customPriceActive', true);
-    priceDropdownOpen.set(false);
-  }
-  function deactivateAllPrice() {
-    toggleColumn('customPriceActive', false);
-    priceDropdownOpen.set(false);
-  }
-  function closePriceDropdown() {
-    priceDropdownOpen.set(false);
-  }
-
-  function handleUpdate(updated: Product): void {
-    products.update((allProducts) =>
-      allProducts.map((p) => (p.handle === updated.handle ? updated : p))
+  function bulkDisableAll() {
+    openConfirm(
+      'Rimuovi toggle su tutti',
+      'Confermi di rimuovere tutti i toggle sui prodotti?',
+      () => products.update((arr) => arr.map((p) => ({ ...p, activeToggle: 'NONE' })))
     );
   }
 </script>
 
-<div class="relative overflow-x-auto bg-white shadow-sm">
-  <table class="min-w-max table-auto divide-y divide-gray-200 whitespace-nowrap">
-    <thead class="bg-gray-50 text-xs text-gray-600">
+<div class="overflow-x-auto">
+  <table class="min-w-full divide-y divide-gray-200">
+    <thead class="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase">
       <tr>
-        <th class="px-4 py-2 text-left">Handle</th>
-        <th class="px-4 py-2 text-left">SKU</th>
-        <th class="px-4 py-2 text-left">Nome</th>
-        <th class="px-4 py-2 text-left">Barcode</th>
-        <th class="px-4 py-2 text-left">Costo €</th>
-        <th class="px-4 py-2 text-left">IVA %</th>
-        <th class="px-4 py-2 text-left">Prezzo Pieno €</th>
+        <th class="px-4 py-2">Handle</th>
+        <th class="px-4 py-2">SKU</th>
+        <th class="px-4 py-2">Nome</th>
+        <th class="px-4 py-2">Barcode</th>
+        <th class="px-4 py-2">Costo €</th>
+        <th class="px-4 py-2">IVA %</th>
+        <th class="px-4 py-2">Prezzo Pieno €</th>
 
-        <!-- Colonna Sconto Max -->
-        <th class="relative px-4 py-2 text-left">
-          <div
-            class="flex cursor-pointer items-center gap-2 select-none"
-            on:click={onClickMaxToggle}
+        <!-- Bulk SM -->
+        <th class="relative px-4 py-2">
+          <span
             role="button"
             tabindex="0"
-            on:keydown={(e) => e.key === 'Enter' && onClickMaxToggle()}
+            class="flex cursor-pointer items-center gap-2"
+            aria-label="Toggle tutti SM"
+            on:click={() => (smOpen = !smOpen)}
+            on:keydown={(e) => e.key === 'Enter' && (smOpen = !smOpen)}
           >
-            <DiscountToggle
-              checked={maxAll}
-              indeterminate={maxIndeterminate}
-              ariaLabel="Toggle tutti Sconto Max"
-              className="pointer-events-none"
-            />
+            <DiscountToggle checked={maxAll} indeterminate={maxIndeterminate} />
             <span>Sconto Max</span>
-          </div>
-
-          <DropdownMenu isOpen={$maxDropdownOpen} setIsOpen={(v) => maxDropdownOpen.set(v)}>
+          </span>
+          <DropdownMenu isOpen={smOpen} setIsOpen={(v) => (smOpen = v)}>
+            <DropdownMenuItem label="Attiva tutti" on:click={() => bulkToggleType('SM')} />
             <DropdownMenuItem
-              href="#"
-              label="Attiva tutto"
-              on:click={(e) => {
-                e.preventDefault();
-                activateAllMax();
-              }}
+              label="Attiva solo sbloccati"
+              on:click={() => bulkToggleType('SM', true)}
             />
-            <DropdownMenuItem
-              href="#"
-              label="Disattiva tutto"
-              on:click={(e) => {
-                e.preventDefault();
-                deactivateAllMax();
-              }}
-            />
-            <DropdownMenuItem
-              href="#"
-              label="Chiudi"
-              on:click={(e) => {
-                e.preventDefault();
-                closeMaxDropdown();
-              }}
-            />
+            <DropdownMenuItem label="Disattiva tutti" on:click={bulkDisableAll} />
+            <DropdownMenuItem label="Chiudi" on:click={() => (smOpen = false)} />
           </DropdownMenu>
         </th>
 
-        <!-- Colonna Sconto Custom -->
-        <th class="relative px-4 py-2 text-left">
-          <div
-            class="flex cursor-pointer items-center gap-2 select-none"
-            on:click={onClickCustomToggle}
+        <!-- Bulk SC -->
+        <th class="relative px-4 py-2">
+          <span
             role="button"
             tabindex="0"
-            on:keydown={(e) => e.key === 'Enter' && onClickCustomToggle()}
+            class="flex cursor-pointer items-center gap-2"
+            aria-label="Toggle tutti SC"
+            on:click={() => (scOpen = !scOpen)}
+            on:keydown={(e) => e.key === 'Enter' && (scOpen = !scOpen)}
           >
-            <DiscountToggle
-              checked={customAll}
-              indeterminate={customIndeterminate}
-              ariaLabel="Toggle tutti Sconto Custom"
-              className="pointer-events-none"
-            />
+            <DiscountToggle checked={scAll} indeterminate={scIndeterminate} />
             <span>Sconto Custom</span>
-          </div>
-
-          <DropdownMenu isOpen={$customDropdownOpen} setIsOpen={(v) => customDropdownOpen.set(v)}>
+          </span>
+          <DropdownMenu isOpen={scOpen} setIsOpen={(v) => (scOpen = v)}>
+            <DropdownMenuItem label="Attiva tutti" on:click={() => bulkToggleType('SC')} />
             <DropdownMenuItem
-              href="#"
-              label="Attiva tutto"
-              on:click={(e) => {
-                e.preventDefault();
-                activateAllCustom();
-              }}
+              label="Attiva solo sbloccati"
+              on:click={() => bulkToggleType('SC', true)}
             />
-            <DropdownMenuItem
-              href="#"
-              label="Disattiva tutto"
-              on:click={(e) => {
-                e.preventDefault();
-                deactivateAllCustom();
-              }}
-            />
-            <DropdownMenuItem
-              href="#"
-              label="Chiudi"
-              on:click={(e) => {
-                e.preventDefault();
-                closeCustomDropdown();
-              }}
-            />
+            <DropdownMenuItem label="Disattiva tutti" on:click={bulkDisableAll} />
+            <DropdownMenuItem label="Chiudi" on:click={() => (scOpen = false)} />
           </DropdownMenu>
         </th>
 
-        <!-- Colonna Prezzo Finale -->
-        <th class="relative px-4 py-2 text-left">
-          <div
-            class="flex cursor-pointer items-center gap-2 select-none"
-            on:click={onClickPriceToggle}
+        <!-- Bulk PF -->
+        <th class="relative px-4 py-2">
+          <span
             role="button"
             tabindex="0"
-            on:keydown={(e) => e.key === 'Enter' && onClickPriceToggle()}
+            class="flex cursor-pointer items-center gap-2"
+            aria-label="Toggle tutti PF"
+            on:click={() => (pfOpen = !pfOpen)}
+            on:keydown={(e) => e.key === 'Enter' && (pfOpen = !pfOpen)}
           >
-            <DiscountToggle
-              checked={priceAll}
-              indeterminate={priceIndeterminate}
-              ariaLabel="Toggle tutti Prezzo Finale"
-              className="pointer-events-none"
-            />
+            <DiscountToggle checked={pfAll} indeterminate={pfIndeterminate} />
             <span>Prezzo Finale</span>
-          </div>
-
-          <DropdownMenu isOpen={$priceDropdownOpen} setIsOpen={(v) => priceDropdownOpen.set(v)}>
-            <DropdownMenuItem
-              href="#"
-              label="Attiva tutto"
-              on:click={(e) => {
-                e.preventDefault();
-                activateAllPrice();
-              }}
-            />
-            <DropdownMenuItem
-              href="#"
-              label="Disattiva tutto"
-              on:click={(e) => {
-                e.preventDefault();
-                deactivateAllPrice();
-              }}
-            />
-            <DropdownMenuItem
-              href="#"
-              label="Chiudi"
-              on:click={(e) => {
-                e.preventDefault();
-                closePriceDropdown();
-              }}
-            />
+          </span>
+          <DropdownMenu isOpen={pfOpen} setIsOpen={(v) => (pfOpen = v)}>
+            <DropdownMenuItem label="Attiva tutti" on:click={() => bulkToggleType('PF')} />
+            <DropdownMenuItem label="Disattiva tutti" on:click={bulkDisableAll} />
+            <DropdownMenuItem label="Chiudi" on:click={() => (pfOpen = false)} />
           </DropdownMenu>
         </th>
 
-        <th class="px-4 py-2 text-left">Giacenza</th>
-        <th class="px-4 py-2 text-left">Sync</th>
-        <th class="px-4 py-2 text-left">Ult. Agg.</th>
+        <th class="px-4 py-2">Giacenza</th>
+        <th class="px-4 py-2">Sync</th>
+        <th class="px-4 py-2">Ult. Agg.</th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-gray-100 text-sm text-gray-800">
+    <tbody class="divide-y divide-gray-200 bg-white">
       {#each $products as product (product.handle)}
+        <!-- passo solo product e onUpdate -->
         <ProductRow {product} onUpdate={handleUpdate} />
       {/each}
     </tbody>
   </table>
+
+  {#if showConfirmModal}
+    <ConfirmModal
+      title={confirmTitle}
+      message={confirmMessage}
+      on:confirm={onConfirm}
+      on:cancel={onCancel}
+    />
+  {/if}
 </div>
