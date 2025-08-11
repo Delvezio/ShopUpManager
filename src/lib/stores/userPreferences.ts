@@ -11,6 +11,8 @@ export interface UserPreferences {
   shippingCost: number;
   /** Soglia per spedizione gratuita in euro */
   freeShippingThreshold: number;
+  /** Limite massimo di Sconto Massimo (SM) in percentuale */
+  limiteSM: number;
 }
 
 const LOCAL_STORAGE_KEY = 'shopup_user_preferences';
@@ -23,7 +25,8 @@ function getInitialPreferences(): UserPreferences {
   const defaults: UserPreferences = {
     targetMarginPercent: 20,
     shippingCost: 8,
-    freeShippingThreshold: 50
+    freeShippingThreshold: 50,
+    limiteSM: 50 // valore di default
   };
 
   if (typeof localStorage !== 'undefined') {
@@ -33,43 +36,38 @@ function getInitialPreferences(): UserPreferences {
         const parsed = JSON.parse(stored) as Partial<UserPreferences>;
         return { ...defaults, ...parsed };
       } catch {
-        // parsing fallito, ricadi sui default
+        return defaults;
       }
     }
   }
-
   return defaults;
 }
 
 /**
- * Crea lo store di UserPreferences con persistenza in localStorage
+ * Store reattivo delle preferenze utente
  */
-function createUserPreferencesStore() {
-  const { subscribe, set, update } = writable<UserPreferences>(getInitialPreferences());
-
-  // Sincronizza localStorage ad ogni aggiornamento
-  subscribe((prefs) => {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(prefs));
-    }
-  });
-
-  return {
-    subscribe,
-    /** Aggiorna il margine target e persiste */
-    setTargetMarginPercent: (value: number) =>
-      update((p) => ({ ...p, targetMarginPercent: value })),
-    /** Aggiorna il costo di spedizione e persiste */
-    setShippingCost: (value: number) => update((p) => ({ ...p, shippingCost: value })),
-    /** Aggiorna la soglia di spedizione gratuita e persiste */
-    setFreeShippingThreshold: (value: number) =>
-      update((p) => ({ ...p, freeShippingThreshold: value })),
-    /** Ripristina ai valori di default */
-    reset: () => set(getInitialPreferences())
-  };
-}
+export const userPreferences = writable<UserPreferences>(getInitialPreferences());
 
 /**
- * Store globale delle preferenze utente
+ * Salva automaticamente le preferenze in localStorage ad ogni modifica
  */
-export const userPreferences = createUserPreferencesStore();
+userPreferences.subscribe((value) => {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(value));
+  }
+});
+
+/**
+ * Funzioni helper per aggiornare singole proprietà delle preferenze
+ */
+export const setTargetMarginPercent = (value: number) =>
+  userPreferences.update((prefs) => ({ ...prefs, targetMarginPercent: value }));
+
+export const setShippingCost = (value: number) =>
+  userPreferences.update((prefs) => ({ ...prefs, shippingCost: value }));
+
+export const setFreeShippingThreshold = (value: number) =>
+  userPreferences.update((prefs) => ({ ...prefs, freeShippingThreshold: value }));
+
+export const setLimiteSM = (value: number) =>
+  userPreferences.update((prefs) => ({ ...prefs, limiteSM: value }));
