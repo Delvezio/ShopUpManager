@@ -1,5 +1,3 @@
-// src/lib/features/price/calculate-sm-test-version.ts
-
 export function calculateSMForTest(params: {
   basePrice: number; // Prezzo lordo di listino (N in Google Sheets)
   costoProdotto: number; // Costo netto fornitore (L in Google Sheets)
@@ -22,8 +20,7 @@ export function calculateSMForTest(params: {
 
   // Caso spedizione gratuita diretta
   if (U_free >= AB && U_free <= N) {
-    const smFinal = Math.min((1 - U_free / N) * 100, LIMITE);
-    return Math.round(smFinal * 100) / 100;
+    return Math.min((1 - U_free / N) * 100, LIMITE);
   }
 
   // Ricerca binaria per trovare Q
