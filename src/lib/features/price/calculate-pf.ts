@@ -1,47 +1,32 @@
 // src/lib/features/price/calculate-pf.ts
+import type { Product } from '../../types/products';
 
 /**
- * Calcola il Prezzo Finale (PF) in euro.
- * Logica:
- * - Se toggle = "PF" → restituisce il prezzo manuale bloccato.
- * - Se toggle = "SC" → applica lo sconto custom sul prezzo base.
- * - Se toggle = "SM" → applica lo sconto massimo calcolato.
- * - Se nessuno attivo → restituisce il prezzo base.
- *
- * @param params - Oggetto con basePrice, sm, sc, toggle, pfManuale
- * @returns {number} PF arrotondato a 2 decimali
+ * Calcola il Prezzo Finale (PF) in base alle regole di priorità:
+ * 1. PF bloccato → usa pfManuale
+ * 2. SC attivo → basePrice - sconto custom
+ * 3. SM attivo → basePrice - sconto massimo
+ * 4. Nessuno attivo → basePrice
  */
-export function calculatePF(params: {
-  basePrice: number;
-  sm: number;
-  sc: number;
-  toggle: 'SM' | 'SC' | 'PF' | 'none';
-  pfManuale: number;
-}): number {
-  const { basePrice, sm, sc, toggle, pfManuale } = params;
-
-  // Controllo input minimi validi
-  if (basePrice <= 0) {
-    return 0;
+export function calculatePF(product: Product): number {
+  if (product.isPFBlocked && product.pfManuale !== undefined) {
+    return roundToTwo(product.pfManuale);
   }
 
-  let prezzoFinale = basePrice;
-
-  switch (toggle) {
-    case 'PF':
-      prezzoFinale = pfManuale;
-      break;
-    case 'SC':
-      prezzoFinale = basePrice * (1 - sc / 100);
-      break;
-    case 'SM':
-      prezzoFinale = basePrice * (1 - sm / 100);
-      break;
-    case 'none':
-    default:
-      prezzoFinale = basePrice;
-      break;
+  if (product.scActive && product.customDiscountPct !== undefined) {
+    return roundToTwo(product.basePrice * (1 - product.customDiscountPct / 100));
   }
 
-  return parseFloat(prezzoFinale.toFixed(2));
+  if (product.smActive && product.maxDiscountPct !== undefined) {
+    return roundToTwo(product.basePrice * (1 - product.maxDiscountPct / 100));
+  }
+
+  return roundToTwo(product.basePrice);
+}
+
+/**
+ * Arrotonda a due decimali
+ */
+function roundToTwo(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }

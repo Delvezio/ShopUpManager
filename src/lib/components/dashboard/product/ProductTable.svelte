@@ -5,17 +5,17 @@
   import DiscountToggle from '$lib/components/ui/discounttoggle/DiscountToggle.svelte';
   import ProductRow from './ProductRow.svelte';
   import ConfirmModal from '$lib/components/ui/modal/ConfirmModal.svelte';
-  import DropdownMenu from '$lib/components/ui/dropdown/DropdownMenu.svelte';
-  import DropdownMenuItem from '$lib/components/ui/dropdown/DropdownMenuItem.svelte';
   import { get } from 'svelte/store';
   import type { ActiveToggle } from '$features/price/utils';
+  import { setColumnToggle, setRowToggle } from '$features/toggle/toggle-manager';
 
   // Aggiorna singolo prodotto
   function handleUpdate(updated: Product) {
     products.update((all) => all.map((p) => (p.handle === updated.handle ? updated : p)));
+    allProducts = get(products); // 🔹 aggiorna subito lo stato dei bulk toggle
   }
 
-  // Stato per i modali e dropdown
+  // Stato per modali
   let showConfirmModal = false;
   let confirmTitle = '';
   let confirmMessage = '';
@@ -35,12 +35,7 @@
     showConfirmModal = false;
   }
 
-  // Dropdown di colonna
-  let smOpen = false;
-  let scOpen = false;
-  let pfOpen = false;
-
-  // Calcoli stati bulk toggle
+  // Stati colonna
   $: allProducts = get(products);
   $: total = allProducts.length;
   $: maxAll = total > 0 && allProducts.every((p) => p.activeToggle === 'SM');
@@ -50,126 +45,114 @@
   $: pfAll = total > 0 && allProducts.every((p) => p.activeToggle === 'PF');
   $: pfIndeterminate = total > 0 && allProducts.some((p) => p.activeToggle === 'PF') && !pfAll;
 
+  // Bulk toggle
   function bulkToggleType(type: ActiveToggle, onlyUnlocked = false) {
+    const isAll = type === 'SM' ? maxAll : type === 'SC' ? scAll : pfAll;
+
+    // 🔹 Se già tutto attivo → disattiva tutti
+    if (isAll) {
+      return bulkDisableAll();
+    }
+
     openConfirm(
       `Applica ${type} a tutti`,
       `Confermi di applicare ${type} a tutti i prodotti?`,
-      () =>
-        products.update((arr) =>
-          arr.map((p) =>
-            onlyUnlocked && p.activeToggle === 'PF' ? p : { ...p, activeToggle: type }
-          )
-        )
+      () => {
+        products.update((arr) => {
+          const { updatedRows } = setColumnToggle(arr, type, { onlyUnlocked, force: true });
+          return updatedRows;
+        });
+        allProducts = get(products);
+      }
     );
   }
+
   function bulkDisableAll() {
     openConfirm(
       'Rimuovi toggle su tutti',
       'Confermi di rimuovere tutti i toggle sui prodotti?',
-      () => products.update((arr) => arr.map((p) => ({ ...p, activeToggle: 'NONE' })))
+      () => {
+        products.update((arr) => {
+          const { updatedRows } = setColumnToggle(arr, 'NONE', { force: true });
+          return updatedRows;
+        });
+        allProducts = get(products); // 🔹 aggiorna subito stato bulk
+      }
     );
+  }
+
+  // Callback chiamata da ProductRow per richiedere conferma
+  function handleRowConfirm({
+    product,
+    type,
+    message
+  }: {
+    product: Product;
+    type: ActiveToggle;
+    message: string;
+  }) {
+    openConfirm('Conferma modifica', message, () => {
+      const { newRow } = setRowToggle(product, type, { force: true });
+      handleUpdate(newRow);
+    });
   }
 </script>
 
 <div class="overflow-x-auto">
-  <table class="min-w-full divide-y divide-gray-200">
-    <thead class="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase">
+  <table class="min-w-full divide-y divide-gray-300 bg-white">
+    <thead class="bg-gray-100 text-sm font-semibold text-gray-900">
       <tr>
-        <th class="px-4 py-2">Handle</th>
-        <th class="px-4 py-2">SKU</th>
-        <th class="px-4 py-2">Nome</th>
-        <th class="px-4 py-2">Barcode</th>
-        <th class="px-4 py-2">Costo €</th>
-        <th class="px-4 py-2">IVA %</th>
-        <th class="px-4 py-2">Prezzo Pieno €</th>
+        <th class="px-4 py-2 text-left">Handle</th>
+        <th class="px-4 py-2 text-left">SKU</th>
+        <th class="px-4 py-2 text-left">Nome</th>
+        <th class="px-4 py-2 text-left">Barcode</th>
+        <th class="px-4 py-2 text-left">Costo €</th>
+        <th class="px-4 py-2 text-left">IVA %</th>
+        <th class="px-4 py-2 text-left">Prezzo Pieno €</th>
 
         <!-- Bulk SM -->
-        <th class="relative px-4 py-2">
-          <span
-            role="button"
-            tabindex="0"
-            class="flex cursor-pointer items-center gap-2"
-            aria-label="Toggle tutti SM"
-            on:click={() => (smOpen = !smOpen)}
-            on:keydown={(e) => e.key === 'Enter' && (smOpen = !smOpen)}
-          >
-            <DiscountToggle checked={maxAll} indeterminate={maxIndeterminate} />
-            <span>Sconto Max</span>
-          </span>
-          <DropdownMenu isOpen={smOpen} setIsOpen={(v) => (smOpen = v)}>
-            <DropdownMenuItem label="Attiva tutti" on:click={() => bulkToggleType('SM')} />
-            <DropdownMenuItem
-              label="Attiva solo sbloccati"
-              on:click={() => bulkToggleType('SM', true)}
-            />
-            <DropdownMenuItem label="Disattiva tutti" on:click={bulkDisableAll} />
-            <DropdownMenuItem label="Chiudi" on:click={() => (smOpen = false)} />
-          </DropdownMenu>
+        <th class="px-4 py-2 text-left">
+          <DiscountToggle
+            checked={maxAll}
+            indeterminate={maxIndeterminate}
+            onToggle={() => bulkToggleType('SM')}
+          />
+          <span>Sconto Max</span>
         </th>
 
         <!-- Bulk SC -->
-        <th class="relative px-4 py-2">
-          <span
-            role="button"
-            tabindex="0"
-            class="flex cursor-pointer items-center gap-2"
-            aria-label="Toggle tutti SC"
-            on:click={() => (scOpen = !scOpen)}
-            on:keydown={(e) => e.key === 'Enter' && (scOpen = !scOpen)}
-          >
-            <DiscountToggle checked={scAll} indeterminate={scIndeterminate} />
-            <span>Sconto Custom</span>
-          </span>
-          <DropdownMenu isOpen={scOpen} setIsOpen={(v) => (scOpen = v)}>
-            <DropdownMenuItem label="Attiva tutti" on:click={() => bulkToggleType('SC')} />
-            <DropdownMenuItem
-              label="Attiva solo sbloccati"
-              on:click={() => bulkToggleType('SC', true)}
-            />
-            <DropdownMenuItem label="Disattiva tutti" on:click={bulkDisableAll} />
-            <DropdownMenuItem label="Chiudi" on:click={() => (scOpen = false)} />
-          </DropdownMenu>
+        <th class="px-4 py-2 text-left">
+          <DiscountToggle
+            checked={scAll}
+            indeterminate={scIndeterminate}
+            onToggle={() => bulkToggleType('SC')}
+          />
+          <span>Sconto Custom</span>
         </th>
 
         <!-- Bulk PF -->
-        <th class="relative px-4 py-2">
-          <span
-            role="button"
-            tabindex="0"
-            class="flex cursor-pointer items-center gap-2"
-            aria-label="Toggle tutti PF"
-            on:click={() => (pfOpen = !pfOpen)}
-            on:keydown={(e) => e.key === 'Enter' && (pfOpen = !pfOpen)}
-          >
-            <DiscountToggle checked={pfAll} indeterminate={pfIndeterminate} />
-            <span>Prezzo Finale</span>
-          </span>
-          <DropdownMenu isOpen={pfOpen} setIsOpen={(v) => (pfOpen = v)}>
-            <DropdownMenuItem label="Attiva tutti" on:click={() => bulkToggleType('PF')} />
-            <DropdownMenuItem label="Disattiva tutti" on:click={bulkDisableAll} />
-            <DropdownMenuItem label="Chiudi" on:click={() => (pfOpen = false)} />
-          </DropdownMenu>
+        <th class="px-4 py-2 text-left">
+          <DiscountToggle
+            checked={pfAll}
+            indeterminate={pfIndeterminate}
+            onToggle={() => bulkToggleType('PF')}
+          />
+          <span>Prezzo Finale</span>
         </th>
 
-        <th class="px-4 py-2">Giacenza</th>
-        <th class="px-4 py-2">Sync</th>
-        <th class="px-4 py-2">Ult. Agg.</th>
+        <th class="px-4 py-2 text-left">Giacenza</th>
+        <th class="px-4 py-2 text-left">Sync</th>
+        <th class="px-4 py-2 text-left">Ult. Agg.</th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-gray-200 bg-white">
+    <tbody class="divide-y divide-gray-200 bg-white text-gray-900">
       {#each $products as product (product.handle)}
-        <!-- passo solo product e onUpdate -->
-        <ProductRow {product} onUpdate={handleUpdate} />
+        <ProductRow {product} onUpdate={handleUpdate} onConfirmToggle={handleRowConfirm} />
       {/each}
     </tbody>
   </table>
 
   {#if showConfirmModal}
-    <ConfirmModal
-      title={confirmTitle}
-      message={confirmMessage}
-      on:confirm={onConfirm}
-      on:cancel={onCancel}
-    />
+    <ConfirmModal title={confirmTitle} message={confirmMessage} {onConfirm} {onCancel} />
   {/if}
 </div>

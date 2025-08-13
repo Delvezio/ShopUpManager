@@ -1,3 +1,5 @@
+// src/lib/features/price/calculate-sm.ts
+
 /**
  * Calcola lo Sconto Massimo (SM) in percentuale basandosi sulla logica di Google Sheets.
  *
@@ -44,7 +46,8 @@ export function calculateSM(params: {
     const iva = (U * M) / (100 + M); // quota IVA
     const netRev = U - iva; // ricavo netto
     const margin = netRev - L - qS;
-    return margin / U; // margine % netto
+    const smFinal = margin / U; // margine % netto;
+    return Math.round(smFinal * 100) / 100;
   }
 
   // Caso semplice: prezzo con spedizione piena >= soglia free

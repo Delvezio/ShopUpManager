@@ -1,70 +1,53 @@
 // src/lib/features/price/calculate-sm.ts
+import type { Product } from '$lib/types/products';
 
 /**
- * Calcola lo Sconto Massimo (SM) in percentuale basandosi sulla logica di Google Sheets.
- *
- * Considera:
- * - Prezzo base lordo (basePrice)
- * - Costo netto prodotto (costoProdotto)
- * - IVA %
- * - Margine target minimo desiderato (utileTarget %)
- * - Costo medio spedizione (costoMedioSpedizione)
- * - Soglia di spedizione gratuita (sogliaFree)
- * - Limite massimo di SM (%) - opzionale
- *
- * Ritorna: numero (percentuale di sconto, es: 20 significa 20%)
+ * Calcola lo Sconto Massimo (SM) mantenendo il margine target.
  */
-export function calculateSM(params: {
-  basePrice: number;
-  costoProdotto: number;
-  iva: number;
-  utileTarget: number;
-  costoMedioSpedizione: number;
-  sogliaFree: number;
-  limiteSM?: number; // Se non passato, nessun limite
-}): number {
-  const {
-    basePrice: N, // Prezzo lordo di listino
-    costoProdotto: L, // Costo netto fornitore
-    iva: M, // IVA (%)
-    utileTarget: Zperc, // % utile netto minimo desiderato
-    costoMedioSpedizione: AA, // Costo spedizione netto
-    sogliaFree: AB, // Soglia spedizione gratuita
-    limiteSM // Limite massimo SM (%)
-  } = params;
+export function calculateSM(
+  product: Product,
+  utileTarget: number,
+  costoMedioSpedizione: number,
+  sogliaFree: number,
+  limiteSM?: number
+): number {
+  const N = product.basePrice; // Prezzo lordo di listino
+  const L = product.cost; // Costo netto fornitore
+  const M = product.iva; // IVA (%)
+  const Zperc = utileTarget; // % utile netto minimo desiderato
+  const AA = costoMedioSpedizione; // Costo spedizione netto
+  const AB = sogliaFree; // Soglia spedizione gratuita
 
   // Se dati mancanti o incoerenti, ritorno 0
   if (!N || !L || isNaN(N) || isNaN(L) || isNaN(M)) return 0;
 
-  const Z = Zperc / 100; // utile target in decimale
-  const netFactor = 100 / (100 + M); // per rimuovere IVA
+  const Z = Zperc / 100;
+  const netFactor = 100 / (100 + M);
 
-  // Funzione interna per calcolare margine % dato uno sconto Q (decimale)
   function marginPercent(Q: number): number {
-    const U = N * (1 - Q); // prezzo scontato lordo
-    const qS = U < AB ? (U / AB) * AA : AA; // ammortamento spedizione
-    const iva = (U * M) / (100 + M); // quota IVA
-    const netRev = U - iva; // ricavo netto
+    const U = N * (1 - Q);
+    const qS = U < AB ? (U / AB) * AA : AA;
+    const iva = (U * M) / (100 + M);
+    const netRev = U - iva;
     const margin = netRev - L - qS;
-    const smFinal = margin / U; // margine % netto;
-    return Math.round(smFinal * 100) / 100;
+    return margin / U;
   }
 
-  // Caso semplice: prezzo con spedizione piena >= soglia free
+  // Protezione: se prezzo <= costo + spedizione, SM = 0
+  if (N <= L + AA) return 0;
+
   const U_free = (L + AA) / (netFactor - Z);
   if (U_free >= AB && U_free <= N) {
     const sconto = 1 - U_free / N;
-    return applyLimit(sconto * 100); // ritorna %
+    return applyLimit(sconto * 100);
   }
 
-  // Caso generale: ricerca binaria per trovare Q che rispetta margine target
   let lo = 0;
   let hi = 1;
   const tol = 1e-5;
-  let mid = 0;
 
   for (let i = 0; i < 40 && hi - lo > tol; i++) {
-    mid = (lo + hi) / 2;
+    const mid = (lo + hi) / 2;
     if (marginPercent(mid) >= Z) {
       lo = mid;
     } else {
@@ -72,9 +55,8 @@ export function calculateSM(params: {
     }
   }
 
-  return applyLimit(lo * 100); // ritorna %
+  return applyLimit(lo * 100);
 
-  // Applica limite SM se presente
   function applyLimit(smPercent: number): number {
     if (typeof limiteSM === 'number') {
       return Math.min(smPercent, limiteSM);

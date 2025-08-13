@@ -1,74 +1,58 @@
-<!-- src/lib/components/dashboard/product/ProductRow.svelte -->
+<!-- src/lib/components/ProductRow.svelte -->
+
 <script lang="ts">
-  import type { Product } from '$lib/types/products';
-  import DiscountToggle from '$lib/components/ui/discounttoggle/DiscountToggle.svelte';
-  import { userPreferences } from '$lib/stores/userPreferences';
+  import DiscountToggle from '../../ui/discounttoggle/DiscountToggle.svelte';
+  import type { Product } from '../../../types/products';
+  import {
+    setRowToggle,
+    handleSCInputChange,
+    handlePFInputChange
+  } from '../../../features/toggle/toggle-manager';
   import type { ActiveToggle } from '$features/price/utils';
-  import { calculateMaxDiscount, calculateFinalPrice } from '$features/price/utils';
-  import { get } from 'svelte/store';
 
-  /** Prop da ProductTable */
   export let product: Product;
-  export let onUpdate: (updated: Product) => void;
+  export let onUpdate: (updatedProduct: Product) => void;
+  export let onConfirmToggle: (params: {
+    product: Product;
+    type: ActiveToggle;
+    message: string;
+  }) => void;
 
-  // Stato locale
-  let customDiscount = product.customDiscountPct ?? 0;
-  let fixedPrice = product.fixedPrice ?? product.basePrice;
-  let activeToggle: ActiveToggle = product.activeToggle ?? 'SM';
+  // Stato dei toggle e valori in input
+  $: activeToggle = product.activeToggle ?? 'NONE';
+  $: customDiscount = product.customDiscountPct ?? 0;
+  $: fixedPrice = product.pfManuale ?? product.basePrice;
+  $: maxDiscount = product.maxDiscountPct ?? 0;
 
-  // Preferenze utente
-  $: prefs = get(userPreferences);
+  function selectToggle(type: NonNullable<Product['activeToggle']>) {
+    // 🔹 Se il toggle cliccato è già attivo → disattiva
+    if (activeToggle === type) {
+      const { newRow } = setRowToggle(product, 'NONE', { force: true });
+      return onUpdate(newRow);
+    }
 
-  // Calcolo Sconto Massimo
-  $: maxDiscount = calculateMaxDiscount({
-    cost: product.cost,
-    vatPercent: product.iva,
-    basePrice: product.basePrice,
-    targetMarginPercent: prefs.targetMarginPercent,
-    avgShippingCost: prefs.shippingCost,
-    freeShipThreshold: prefs.freeShippingThreshold,
-    // Limite massimo di sconto (default 100%)
-    maxDiscountLimitPercent: 100
-  });
-
-  // Calcolo Prezzo Finale
-  $: finalPrice = calculateFinalPrice({
-    basePrice: product.basePrice,
-    maxDiscount,
-    customDiscount,
-    fixedPrice,
-    activeToggle
-  });
-
-  // Invia aggiornamento al parent
-  function notifyParent() {
-    onUpdate({
-      ...product,
-      customDiscountPct: customDiscount,
-      fixedPrice,
-      activeToggle,
-      salePrice: finalPrice,
-      maxDiscountPct: maxDiscount
-    });
-  }
-
-  function selectToggle(toggle: ActiveToggle) {
-    activeToggle = toggle;
-    notifyParent();
+    const { newRow, requireConfirm, confirmMessage } = setRowToggle(product, type);
+    if (requireConfirm && confirmMessage) {
+      onConfirmToggle({ product, type, message: confirmMessage });
+      return;
+    }
+    onUpdate(newRow);
   }
 
   function handleCustomInput(e: Event) {
-    const raw = (e.target as HTMLInputElement).value.replace(',', '.');
-    customDiscount = parseFloat(raw) || 0;
-    activeToggle = 'SC';
-    notifyParent();
+    const val = parseFloat((e.target as HTMLInputElement).value) || 0;
+    const { newRow, requireConfirm, confirmMessage } = handleSCInputChange(product, val);
+    if (requireConfirm && confirmMessage) {
+      onConfirmToggle({ product, type: 'SC', message: confirmMessage });
+      return;
+    }
+    onUpdate(newRow);
   }
 
   function handleFixedInput(e: Event) {
-    const raw = (e.target as HTMLInputElement).value.replace(',', '.');
-    fixedPrice = parseFloat(raw) || product.basePrice;
-    activeToggle = 'PF';
-    notifyParent();
+    const val = parseFloat((e.target as HTMLInputElement).value) || 0;
+    const { newRow } = handlePFInputChange(product, val);
+    onUpdate(newRow);
   }
 </script>
 
@@ -77,28 +61,23 @@
   <td class="px-4 py-2">{product.sku}</td>
   <td class="px-4 py-2">{product.name}</td>
   <td class="px-4 py-2">{product.barcode}</td>
-  <td class="px-4 py-2">
-    {product.cost.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-  </td>
+  <td class="px-4 py-2">{product.cost.toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
   <td class="px-4 py-2">{product.iva}%</td>
   <td class="px-4 py-2">
-    {product.basePrice.toLocaleString('it-IT', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    })}
+    {product.basePrice.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
   </td>
 
-  <!-- Sconto Massimo -->
+  <!-- SM -->
   <td class="px-4 py-2">
-    <div class="flex items-center gap-2">
-      <DiscountToggle checked={activeToggle === 'SM'} on:toggle={() => selectToggle('SM')} />
+    <div class="flex items-center gap-2 whitespace-nowrap">
+      <DiscountToggle checked={activeToggle === 'SM'} onToggle={() => selectToggle('SM')} />
       <span>{maxDiscount.toFixed(2)}%</span>
     </div>
   </td>
 
-  <!-- Sconto Custom -->
+  <!-- SC -->
   <td class="px-4 py-2">
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 whitespace-nowrap">
       <input
         type="number"
         min="0"
@@ -108,13 +87,13 @@
         bind:value={customDiscount}
         on:input={handleCustomInput}
       />
-      <DiscountToggle checked={activeToggle === 'SC'} on:toggle={() => selectToggle('SC')} />
+      <DiscountToggle checked={activeToggle === 'SC'} onToggle={() => selectToggle('SC')} />
     </div>
   </td>
 
-  <!-- Prezzo Finale -->
+  <!-- PF -->
   <td class="px-4 py-2">
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 whitespace-nowrap">
       <input
         type="number"
         min="0"
@@ -123,17 +102,11 @@
         bind:value={fixedPrice}
         on:input={handleFixedInput}
       />
-      <DiscountToggle checked={activeToggle === 'PF'} on:toggle={() => selectToggle('PF')} />
+      <DiscountToggle checked={activeToggle === 'PF'} onToggle={() => selectToggle('PF')} />
     </div>
   </td>
 
-  <!-- Altri campi -->
   <td class="px-4 py-2">{product.stock}</td>
   <td class="px-4 py-2">{product.syncState}</td>
   <td class="px-4 py-2">{product.updatedAt.toLocaleString()}</td>
-
-  <!-- Prezzo Finale Esportato -->
-  <td class="px-4 py-2 text-right">
-    {finalPrice.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-  </td>
 </tr>

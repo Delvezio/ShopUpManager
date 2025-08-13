@@ -2,6 +2,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { calculateSM } from '../src/lib/features/price/calculate-sm';
+import type { Product } from '../src/lib/types/products';
 
 describe('Calcolo SM - protezione margine in casi limite', () => {
   const casiTest = [
@@ -49,15 +50,36 @@ describe('Calcolo SM - protezione margine in casi limite', () => {
 
   casiTest.forEach(({ nome, input, atteso, attesoMin, attesoMax }) => {
     it(nome, () => {
-      const smCalcolato = calculateSM({
-        basePrice: input.basePrice,
-        costoProdotto: input.costoProdotto,
+      const mockProduct: Product = {
+        handle: '',
+        sku: '',
+        name: '',
+        barcode: '',
+        cost: input.costoProdotto,
         iva: input.iva,
-        utileTarget: input.margineTarget, // mappato
-        costoMedioSpedizione: input.costoSpedizione, // mappato
-        sogliaFree: input.sogliaSpedGratis, // mappato
-        limiteSM: input.limiteSM
-      });
+        basePrice: input.basePrice,
+        salePrice: input.basePrice,
+        stock: 0,
+        syncState: 'synced',
+        updatedAt: new Date(),
+        maxDiscountActive: false,
+        maxDiscountPct: undefined,
+        customDiscountPct: undefined,
+        fixedPrice: undefined,
+        activeToggle: 'NONE',
+        smActive: false,
+        scActive: false,
+        isPFBlocked: false,
+        pfManuale: undefined
+      };
+
+      const smCalcolato = calculateSM(
+        mockProduct,
+        input.margineTarget,
+        input.costoSpedizione,
+        input.sogliaSpedGratis,
+        input.limiteSM
+      );
 
       if (typeof atteso !== 'undefined') {
         expect(smCalcolato).toBeCloseTo(atteso, 2);

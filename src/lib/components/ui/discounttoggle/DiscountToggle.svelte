@@ -1,69 +1,29 @@
 <script lang="ts">
-  export let checked: boolean = false;
-  export let indeterminate: boolean = false;
-  export let className: string = '';
-  export let ariaLabel: string = '';
-  export let onToggle: ((checked: boolean) => void) | null = null;
+  export let checked = false;
+  export let indeterminate = false;
+  export let disabled = false;
+  export let onToggle: (() => void) | undefined;
 
-  function toggle() {
-    if (onToggle) onToggle(!checked);
+  function handleClick() {
+    if (!disabled) onToggle?.();
   }
 </script>
 
 <button
   type="button"
+  class="flex h-6 w-6 cursor-pointer items-center justify-center rounded border select-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 focus:outline-none"
+  class:border-green-600={checked}
+  class:border-red-600={!checked && !indeterminate}
+  class:border-gray-500={indeterminate}
+  on:click={handleClick}
   aria-pressed={checked}
-  aria-label={ariaLabel}
-  class={`inline-flex h-8 w-8 items-center justify-center rounded border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none ${className}`}
-  on:click={toggle}
+  aria-label="Toggle sconto"
 >
   {#if indeterminate}
-    <!-- Icona stato misto (trattino) -->
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      class="h-5 w-5 text-gray-500"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      stroke-width="3"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
+    <span class="h-0.5 w-3 rounded bg-green-600"></span>
   {:else if checked}
-    <!-- Icona check -->
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      class="h-5 w-5 text-green-600"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      stroke-width="3"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <path d="M5 13l4 4L19 7" />
-    </svg>
+    <span class="font-bold text-green-600">✓</span>
   {:else}
-    <!-- Icona cross -->
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      class="h-5 w-5 text-red-600"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
-      stroke-width="3"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <path d="M6 18L18 6M6 6l12 12" />
-    </svg>
+    <span class="font-bold text-red-600">✕</span>
   {/if}
 </button>
-
-<style>
-  button {
-    user-select: none;
-  }
-</style>
